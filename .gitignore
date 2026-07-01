@@ -1,0 +1,21 @@
+# Environments
+venv/
+env/
+.env
+
+# Cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+
+# Project specific
+output/
+*.wav
+*.mp4
+*.jpg
+*.json

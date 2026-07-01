@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prompt-to-Series Engine</title>
+    <style>
+        :root {
+            --bg-color: #0b111e;
+            --surface-color: #141d2f;
+            --text-color: #ffffff;
+            --accent-color: #0ea5e9;
+            --border-color: #1e293b;
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-family);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            padding: 2rem;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .input-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .custom-input {
+            display: none;
+            margin-top: 0.5rem;
+        }
+
+        label {
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+
+        input[type="text"], input[type="number"], select {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 0.75rem 1rem;
+            font-family: var(--font-family);
+            font-size: 1rem;
+            outline: none;
+            width: 100%;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--accent-color);
+        }
+
+        .voice-row {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .voice-row select {
+            flex-grow: 1;
+        }
+
+        .preview-btn {
+            background-color: var(--surface-color);
+            color: var(--accent-color);
+            border: 1px solid var(--accent-color);
+            padding: 0.75rem;
+            cursor: pointer;
+            width: auto;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .preview-btn:hover {
+            background-color: var(--accent-color);
+            color: var(--bg-color);
+        }
+
+        button.primary-btn {
+            background-color: var(--accent-color);
+            color: var(--bg-color);
+            border: 1px solid var(--accent-color);
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            font-family: var(--font-family);
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        button.primary-btn:hover {
+            background-color: var(--bg-color);
+            color: var(--accent-color);
+        }
+        
+        button.primary-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: var(--accent-color);
+            color: var(--bg-color);
+        }
+
+        .progress-tracker {
+            display: none;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            color: #64748b;
+        }
+
+        .step:last-child {
+            margin-bottom: 0;
+        }
+
+        .step.active {
+            color: var(--accent-color);
+            font-weight: 600;
+        }
+
+        .step.done {
+            color: var(--text-color);
+        }
+
+        .step-icon {
+            width: 24px;
+            height: 24px;
+            border: 1px solid currentColor;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            font-size: 0.8rem;
+        }
+
+        .output-section {
+            display: none;
+            flex-direction: column;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .videos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .video-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        video {
+            width: 100%;
+            aspect-ratio: 9/16;
+            background-color: #000;
+            border: 1px solid var(--border-color);
+        }
+
+        .download-btn {
+            display: inline-block;
+            background-color: var(--accent-color);
+            color: var(--bg-color);
+            text-align: center;
+            padding: 0.5rem;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            border: 1px solid var(--accent-color);
+        }
+        
+        .download-btn:hover {
+            background-color: var(--bg-color);
+            color: var(--accent-color);
+        }
+
+        .metadata-box {
+            font-size: 0.85rem;
+            background: #111;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            margin-top: 0.5rem;
+            color: #ccc;
+        }
+        
+        .metadata-box p {
+            margin: 0 0 0.5rem 0;
+            line-height: 1.4;
+        }
+        
+        .metadata-box p:last-child {
+            margin: 0;
+        }
+
+        .script-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .script-container h3 {
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+            color: var(--accent-color);
+        }
+
+        pre {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            overflow-x: auto;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            max-height: 400px;
+        }
+        
+        #error-message {
+            color: #ef4444;
+            margin-top: 1rem;
+            display: none;
+            border: 1px solid #ef4444;
+            padding: 1rem;
+            background-color: rgba(239, 68, 68, 0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Prompt-to-Series Engine</h1>
+        
+        <div class="form-grid">
+            <div class="input-group">
+                <label for="nicheInput">Niche / Theme</label>
+                <select id="nicheInput">
+                    <option value="Corporate Nightmare">Corporate Nightmare</option>
+                    <option value="Sci-Fi Horror">Sci-Fi Horror</option>
+                    <option value="Historical Comedy">Historical Comedy</option>
+                    <option value="True Crime">True Crime Parody</option>
+                    <option value="Fantasy Lore">Fantasy Lore</option>
+                    <option value="Custom">Other (Type your own)</option>
+                </select>
+                <input type="text" id="customNicheInput" class="custom-input" placeholder="Enter custom niche...">
+            </div>
+            
+            <div class="input-group">
+                <label for="styleInput">Storytelling Style</label>
+                <select id="styleInput">
+                    <option value="Sarcastic & Dry">Sarcastic & Dry</option>
+                    <option value="Cinematic & Epic">Cinematic & Epic</option>
+                    <option value="First-Person Journal">First-Person Journal</option>
+                    <option value="Documentary">Documentary</option>
+                    <option value="Custom">Other (Type your own)</option>
+                </select>
+                <input type="text" id="customStyleInput" class="custom-input" placeholder="Enter custom style...">
+            </div>
+
+            <div class="input-group">
+                <label for="voiceInput">Narration Voice (Kokoro)</label>
+                <div class="voice-row">
+                    <select id="voiceInput">
+                        <optgroup label="American - Male">
+                            <option value="am_adam">Adam (Clear, Deep)</option>
+                            <option value="am_fenrir">Fenrir (Intense, Gruff)</option>
+                            <option value="am_michael">Michael (Warm Narrator)</option>
+                            <option value="am_onyx">Onyx (Deep, Authoritative)</option>
+                        </optgroup>
+                        <optgroup label="American - Female">
+                            <option value="af_bella">Bella (Dynamic, Expressive)</option>
+                            <option value="af_sarah">Sarah (Standard Narrator)</option>
+                            <option value="af_nicole">Nicole (Soft, Suspenseful)</option>
+                        </optgroup>
+                        <optgroup label="British - Male">
+                            <option value="bm_george">George (Posh, Documentary)</option>
+                            <option value="bm_lewis">Lewis (Standard UK)</option>
+                        </optgroup>
+                        <optgroup label="British - Female">
+                            <option value="bf_emma">Emma (Standard UK)</option>
+                            <option value="bf_isabella">Isabella (Upper-class)</option>
+                        </optgroup>
+                    </select>
+                    <button class="preview-btn" id="previewBtn" title="Play Preview">▶</button>
+                </div>
+            </div>
+            
+            <div class="input-group">
+                <label for="episodesInput">Number of Episodes</label>
+                <input type="number" id="episodesInput" value="3" min="1" max="5">
+            </div>
+
+            <div class="input-group">
+                <label for="llmProviderInput">AI Engine</label>
+                <select id="llmProviderInput">
+                    <option value="gemini">Gemini 2.5 Flash</option>
+                    <option value="llama">Llama 3 Versatile (Groq)</option>
+                </select>
+            </div>
+
+            <div class="input-group full-width">
+                <label for="topicInput">Premise / Topic</label>
+                <input type="text" id="topicInput" placeholder="e.g. A printer that prints emails from tomorrow">
+            </div>
+        </div>
+        
+        <button id="generateBtn" class="primary-btn">Generate Series</button>
+
+        <div id="error-message"></div>
+
+        <div class="progress-tracker" id="progressTracker">
+            <div class="step" id="step0">
+                <div class="step-icon">0</div>
+                <div class="step-text">Master Planner: Awaiting...</div>
+            </div>
+            <div class="step" id="step1">
+                <div class="step-icon">1</div>
+                <div class="step-text">Episode Workflow: Awaiting...</div>
+            </div>
+        </div>
+
+        <div class="output-section" id="outputSection">
+            <div class="videos-grid" id="videosGrid"></div>
+            <div class="script-container">
+                <h3>Series Master Plan & Scripts JSON</h3>
+                <pre id="scriptOutput"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden audio element for previews -->
+    <audio id="previewAudio"></audio>
+
+    <script>
+        const generateBtn = document.getElementById('generateBtn');
+        const nicheInput = document.getElementById('nicheInput');
+        const styleInput = document.getElementById('styleInput');
+        const topicInput = document.getElementById('topicInput');
+        const episodesInput = document.getElementById('episodesInput');
+        const llmProviderInput = document.getElementById('llmProviderInput');
+        const voiceInput = document.getElementById('voiceInput');
+        const previewBtn = document.getElementById('previewBtn');
+        const previewAudio = document.getElementById('previewAudio');
+        const customNicheInput = document.getElementById('customNicheInput');
+        const customStyleInput = document.getElementById('customStyleInput');
+        
+        const progressTracker = document.getElementById('progressTracker');
+        const outputSection = document.getElementById('outputSection');
+        const videosGrid = document.getElementById('videosGrid');
+        const scriptOutput = document.getElementById('scriptOutput');
+        const errorMessage = document.getElementById('error-message');
+        
+        let seriesData = null;
+
+        // Preview Voice Logic
+        previewBtn.addEventListener('click', () => {
+            const selectedVoice = voiceInput.value;
+            previewAudio.src = `/output/previews/${selectedVoice}.wav`;
+            
+            previewAudio.play().catch(err => {
+                alert("Preview audio not found. Did you run `python generate_previews.py`?");
+            });
+        });
+
+        nicheInput.addEventListener('change', () => {
+            customNicheInput.style.display = nicheInput.value === 'Custom' ? 'block' : 'none';
+        });
+
+        styleInput.addEventListener('change', () => {
+            customStyleInput.style.display = styleInput.value === 'Custom' ? 'block' : 'none';
+        });
+
+        function updateStep(stepNum, status, message) {
+            const stepEl = document.getElementById(`step${stepNum}`);
+            if (!stepEl) return;
+            
+            const textEl = stepEl.querySelector('.step-text');
+            
+            if (status === 'processing') {
+                stepEl.className = 'step active';
+                textEl.textContent = message || 'Processing...';
+            } else if (status === 'done') {
+                stepEl.className = 'step done';
+                textEl.textContent = message || `Node ${stepNum}: Completed`;
+            } else if (status === 'completed') {
+                stepEl.className = 'step done';
+                textEl.textContent = message || `Node ${stepNum}: Ready`;
+            }
+        }
+        
+        function resetUI() {
+            progressTracker.style.display = 'block';
+            outputSection.style.display = 'none';
+            errorMessage.style.display = 'none';
+            videosGrid.innerHTML = '';
+            seriesData = null;
+            
+            document.getElementById('step0').className = 'step';
+            document.getElementById('step0').querySelector('.step-text').textContent = 'Master Planner: Awaiting...';
+            
+            document.getElementById('step1').className = 'step';
+            document.getElementById('step1').querySelector('.step-text').textContent = 'Episode Workflow: Awaiting...';
+        }
+
+        generateBtn.addEventListener('click', async () => {
+            const topic = topicInput.value.trim();
+            
+            let niche = nicheInput.value;
+            if (niche === 'Custom') niche = customNicheInput.value.trim() || 'General';
+            
+            let style = styleInput.value;
+            if (style === 'Custom') style = customStyleInput.value.trim() || 'General';
+            
+            const voiceId = voiceInput.value;
+            const llmProvider = llmProviderInput.value;
+            const episodes = parseInt(episodesInput.value) || 3;
+            
+            if (!topic) {
+                alert("Please enter a premise.");
+                return;
+            }
+
+            generateBtn.disabled = true;
+            resetUI();
+            
+            const clientId = 'client_' + Math.random().toString(36).substring(2, 15);
+
+            try {
+                const res = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        topic, 
+                        niche, 
+                        style, 
+                        episodes, 
+                        voice_id: voiceId,
+                        llm_provider: llmProvider,
+                        client_id: clientId 
+                    })
+                });
+
+                if (!res.ok) {
+                    throw new Error('Failed to start generation');
+                }
+
+                const evtSource = new EventSource(`/api/progress/${clientId}`);
+
+                evtSource.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.status === 'error') {
+                        errorMessage.textContent = 'Error: ' + data.message;
+                        errorMessage.style.display = 'block';
+                        generateBtn.disabled = false;
+                        evtSource.close();
+                        return;
+                    }
+                    
+                    if (data.step !== undefined) {
+                        updateStep(data.step, data.status, data.message);
+                        
+                        if (data.data) {
+                            seriesData = data.data; 
+                        }
+                    }
+
+                    if (data.status === 'completed' && data.video_urls) {
+                        evtSource.close();
+                        
+                        outputSection.style.display = 'flex';
+                        
+                        data.video_urls.forEach((url, i) => {
+                            const episodeData = seriesData && seriesData.episodes ? seriesData.episodes[i] : null;
+                            const title = episodeData ? episodeData.episode_title : `Part ${i+1}`;
+                            const desc = episodeData && episodeData.description ? episodeData.description : "No description generated.";
+                            const tags = episodeData && episodeData.hashtags ? episodeData.hashtags : "";
+
+                            const wrapper = document.createElement('div');
+                            wrapper.className = 'video-item';
+                            wrapper.innerHTML = `
+                                <h4>${title}</h4>
+                                <video src="${url}?t=${new Date().getTime()}" controls></video>
+                                <a href="${url}" download class="download-btn">Download Video</a>
+                                <div class="metadata-box">
+                                    <p><strong>Description:</strong><br>${desc}</p>
+                                    <p><strong>Hashtags:</strong><br>${tags}</p>
+                                </div>
+                            `;
+                            videosGrid.appendChild(wrapper);
+                        });
+                        
+                        if (seriesData) {
+                            scriptOutput.textContent = JSON.stringify(seriesData, null, 2);
+                        }
+                        
+                        generateBtn.disabled = false;
+                        updateStep(1, 'completed', 'All episodes generated!');
+                    }
+                };
+
+                evtSource.onerror = function(err) {
+                    console.error("EventSource failed:", err);
+                    errorMessage.textContent = 'Connection to server lost. Check backend logs.';
+                    errorMessage.style.display = 'block';
+                    generateBtn.disabled = false;
+                    evtSource.close();
+                };
+
+            } catch (err) {
+                errorMessage.textContent = err.message;
+                errorMessage.style.display = 'block';
+                generateBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
