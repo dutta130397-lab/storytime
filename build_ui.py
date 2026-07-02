@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+import os
+
+HTML_CONTENT = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -26,18 +28,11 @@
             font-family: var(--font-family);
             color: var(--text-dark);
             min-height: 100vh;
-            /* Vibrant animated pastel gradient background */
-            background: linear-gradient(45deg, #ff9a9e 0%, #fecfef 25%, #a1c4fd 50%, #c2e9fb 75%, #e0c3fc 100%);
-            background-size: 400% 400%;
-            animation: gradientBG 15s ease infinite;
+            /* Vibrant pastel gradient background */
+            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%), linear-gradient(120deg, #e0c3fc 0%, #8ec5fc 100%);
+            background-blend-mode: overlay;
             display: flex;
             overflow-x: hidden;
-        }
-
-        @keyframes gradientBG {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
         }
 
         /* Glassmorphism Utility Class */
@@ -341,37 +336,6 @@
             border-radius: 8px;
             margin-top: 1rem;
         }
-
-        /* Chat UI */
-        .chat-history {
-            flex-grow: 1;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            padding: 1rem;
-        }
-        .chat-bubble {
-            max-width: 85%;
-            padding: 1rem;
-            border-radius: 12px;
-            font-size: 0.95rem;
-            line-height: 1.5;
-        }
-        .chat-bubble.user {
-            align-self: flex-end;
-            background: var(--accent);
-            color: white;
-            border-bottom-right-radius: 2px;
-        }
-        .chat-bubble.assistant {
-            align-self: flex-start;
-            background: rgba(255, 255, 255, 0.7);
-            border: 1px solid var(--glass-border);
-            color: var(--text-dark);
-            border-bottom-left-radius: 2px;
-            white-space: pre-wrap;
-        }
     </style>
 </head>
 <body>
@@ -391,21 +355,17 @@
     <!-- Main Content Area -->
     <main class="main-content no-sidebar" id="mainContent">
         
-        <!-- PAGE 1: LOGIN & REGISTER -->
+        <!-- PAGE 1: LOGIN -->
         <section id="page-login" class="page-section active">
             <div class="login-card glass">
-                <h2 id="authTitle">Welcome to StoryTime</h2>
+                <h2>Welcome to StoryTime</h2>
                 <div class="input-group">
-                    <input type="text" id="authUsername" placeholder="Username" class="glass-input">
+                    <input type="email" placeholder="Email Address" class="glass-input" value="creator@storytime.ai">
                 </div>
                 <div class="input-group">
-                    <input type="password" id="authPassword" placeholder="Password" class="glass-input">
+                    <input type="password" placeholder="Password" class="glass-input" value="password123">
                 </div>
-                <button id="authBtn" class="primary-btn">Sign In</button>
-                <div id="authError" style="color: #ef4444; margin-top: 1rem; display: none;"></div>
-                <p style="margin-top: 1.5rem; color: var(--text-light); text-align: center; cursor: pointer;" id="authToggle">
-                    Don't have an account? <b>Register here</b>
-                </p>
+                <button id="loginBtn" class="primary-btn">Sign In</button>
             </div>
         </section>
 
@@ -422,11 +382,6 @@
                     <div class="input-group">
                         <label for="topicInput">Premise / Topic</label>
                         <input type="text" id="topicInput" class="glass-input" placeholder="e.g. A printer that prints emails from tomorrow">
-                    </div>
-                    
-                    <div class="input-group">
-                        <label for="scriptOverrideInput">Script Override (Optional)</label>
-                        <textarea id="scriptOverrideInput" class="glass-input" rows="4" placeholder="Paste your brainstormed script here to bypass the AI generation and use your exact story..."></textarea>
                     </div>
                     
                     <div class="input-group">
@@ -528,32 +483,26 @@
                 <h2 style="margin-bottom: 1rem;">Your Library</h2>
                 <p style="color: var(--text-light); margin-bottom: 2rem;">Browse and manage your previously generated series.</p>
                 
-                <div id="libraryGrid" class="videos-grid">
-                    <!-- Dynamic Library Content Goes Here -->
-                </div>
-                
-                <div id="libraryEmptyState" style="text-align: center; padding: 4rem; border: 1px dashed var(--glass-border); border-radius: 12px; display: none;">
+                <div style="text-align: center; padding: 4rem; border: 1px dashed var(--glass-border); border-radius: 12px;">
                     <h3 style="color: var(--text-light);">No videos found</h3>
-                    <p style="font-size: 0.9rem; margin-top: 0.5rem; color: #94a3b8;">Generate some videos in the Studio first.</p>
+                    <p style="font-size: 0.9rem; margin-top: 0.5rem; color: #94a3b8;">(Phase 2 Backend Integration Pending)</p>
                 </div>
             </div>
         </section>
 
         <!-- PAGE 3: CHAT ASSISTANT -->
         <section id="page-chat" class="page-section">
-            <div class="panel glass" style="height: 85vh; display: flex; flex-direction: column;">
-                <h2 style="margin-bottom: 0.5rem;">AI Script Assistant</h2>
-                <p style="color: var(--text-light); margin-bottom: 1rem;">Brainstorm viral ideas and storylines before generating.</p>
+            <div class="panel glass" style="height: 80vh; display: flex; flex-direction: column;">
+                <h2 style="margin-bottom: 1rem;">AI Script Assistant</h2>
+                <p style="color: var(--text-light); margin-bottom: 2rem;">Brainstorm viral ideas and storylines before generating.</p>
                 
-                <div class="chat-history" id="chatHistory" style="border: 1px solid var(--glass-border); border-radius: 12px; background: rgba(255,255,255,0.3); margin-bottom: 1rem;">
-                    <div class="chat-bubble assistant">Hi there! I'm your Viral Video Producer. 🎬
-
-Tell me a niche, a crazy premise, or a rough idea, and I'll draft a highly engaging script for you. Once you love it, you can paste it straight into the Studio Override box!</div>
+                <div style="flex-grow: 1; border: 1px solid var(--glass-border); border-radius: 12px; background: rgba(255,255,255,0.3); margin-bottom: 1rem; padding: 1rem; display: flex; align-items: center; justify-content: center;">
+                    <p style="color: #94a3b8;">(Phase 3 WebSocket Chat UI Pending)</p>
                 </div>
                 
                 <div style="display: flex; gap: 1rem;">
-                    <input type="text" id="chatInput" class="glass-input" placeholder="Type your idea here..." onkeypress="if(event.key === 'Enter') sendChat()">
-                    <button id="chatSendBtn" class="primary-btn" style="width: auto;" onclick="sendChat()">Send</button>
+                    <input type="text" class="glass-input" placeholder="Type your idea here...">
+                    <button class="primary-btn" style="width: auto;">Send</button>
                 </div>
             </div>
         </section>
@@ -594,98 +543,23 @@ Tell me a niche, a crazy premise, or a rough idea, and I'll draft a highly engag
         const sections = document.querySelectorAll('.page-section');
         const sidebar = document.getElementById('sidebar');
         const mainContent = document.getElementById('mainContent');
-        
-        // --- Auth Logic ---
-        let isLoginMode = true;
-        const authTitle = document.getElementById('authTitle');
-        const authBtn = document.getElementById('authBtn');
-        const authToggle = document.getElementById('authToggle');
-        const authError = document.getElementById('authError');
-        const authUsername = document.getElementById('authUsername');
-        const authPassword = document.getElementById('authPassword');
-        
-        authToggle.addEventListener('click', () => {
-            isLoginMode = !isLoginMode;
-            authTitle.textContent = isLoginMode ? "Welcome to StoryTime" : "Create an Account";
-            authBtn.textContent = isLoginMode ? "Sign In" : "Register";
-            authToggle.innerHTML = isLoginMode 
-                ? "Don't have an account? <b>Register here</b>"
-                : "Already have an account? <b>Sign In</b>";
-            authError.style.display = 'none';
-        });
+        const loginBtn = document.getElementById('loginBtn');
 
-        authBtn.addEventListener('click', async () => {
-            const username = authUsername.value.trim();
-            const password = authPassword.value;
-            
-            if (!username || !password) {
-                authError.textContent = "Please fill in all fields.";
-                authError.style.color = "#ef4444";
-                authError.style.display = 'block';
-                return;
-            }
-            
-            authBtn.disabled = true;
-            authBtn.textContent = "Please wait...";
-            
-            const endpoint = isLoginMode ? '/api/login' : '/api/register';
-            
-            try {
-                const res = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    if (isLoginMode) {
-                        localStorage.setItem('storytime_username', username);
-                        
-                        document.getElementById('page-login').classList.remove('active');
-                        document.getElementById('page-studio').classList.add('active');
-                        sidebar.style.display = 'flex';
-                        mainContent.classList.remove('no-sidebar');
-                        
-                        // Update active nav state
-                        navItems.forEach(nav => nav.classList.remove('active'));
-                        document.querySelector('[data-target="page-studio"]').classList.add('active');
-                    } else {
-                        // Registration success, switch to login
-                        isLoginMode = true;
-                        authTitle.textContent = "Welcome to StoryTime";
-                        authBtn.textContent = "Sign In";
-                        authToggle.innerHTML = "Don't have an account? <b>Register here</b>";
-                        authError.textContent = "Registration successful! Please sign in.";
-                        authError.style.color = "#22c55e"; // green
-                        authError.style.display = 'block';
-                        authUsername.value = '';
-                        authPassword.value = '';
-                    }
-                } else {
-                    authError.textContent = data.error;
-                    authError.style.color = "#ef4444";
-                    authError.style.display = 'block';
-                }
-            } catch (err) {
-                authError.textContent = "Server error. Try again later.";
-                authError.style.color = "#ef4444";
-                authError.style.display = 'block';
-            }
-            
-            authBtn.disabled = false;
-            if (isLoginMode) authBtn.textContent = "Sign In";
-            else authBtn.textContent = "Register";
+        // Mock Login Flow
+        loginBtn.addEventListener('click', () => {
+            document.getElementById('page-login').classList.remove('active');
+            sidebar.style.display = 'flex';
+            mainContent.classList.remove('no-sidebar');
+            document.getElementById('page-studio').classList.add('active');
         });
 
         // Sidebar Navigation
         navItems.forEach(item => {
-            item.addEventListener('click', async () => {
+            item.addEventListener('click', () => {
                 const targetId = item.getAttribute('data-target');
                 
                 if (targetId === 'page-login') {
-                    // Logout
-                    localStorage.removeItem('storytime_username');
+                    // Mock Logout
                     sidebar.style.display = 'none';
                     mainContent.classList.add('no-sidebar');
                 }
@@ -697,115 +571,15 @@ Tell me a niche, a crazy premise, or a rough idea, and I'll draft a highly engag
                 // Toggle sections
                 sections.forEach(sec => sec.classList.remove('active'));
                 document.getElementById(targetId).classList.add('active');
-                
-                // Fetch library if clicking on library
-                if (targetId === 'page-library') {
-                    await loadLibrary();
-                }
             });
         });
-        
-        // --- Library Logic ---
-        async function loadLibrary() {
-            const libraryGrid = document.getElementById('libraryGrid');
-            const libraryEmptyState = document.getElementById('libraryEmptyState');
-            const username = localStorage.getItem('storytime_username');
-            
-            try {
-                const res = await fetch(`/api/library?username=${username}`);
-                const data = await res.json();
-                
-                libraryGrid.innerHTML = '';
-                
-                if (!data.videos || data.videos.length === 0) {
-                    libraryEmptyState.style.display = 'block';
-                } else {
-                    libraryEmptyState.style.display = 'none';
-                    data.videos.forEach(v => {
-                        const wrapper = document.createElement('div');
-                        wrapper.className = 'video-item';
-                        wrapper.innerHTML = `
-                            <h4>${v.title}</h4>
-                            <video src="${v.url}" controls></video>
-                            <a href="${v.url}" download class="download-btn">Download MP4</a>
-                            <div class="metadata-box">
-                                <p><strong>Description:</strong><br>${v.description}</p>
-                                <p><strong>Hashtags:</strong><br>${v.hashtags}</p>
-                            </div>
-                        `;
-                        libraryGrid.appendChild(wrapper);
-                    });
-                }
-            } catch (err) {
-                console.error("Failed to load library:", err);
-            }
-        }
 
-
-        // --- Chat Assistant Logic ---
-        let chatMessages = [];
-        
-        async function sendChat() {
-            const inputEl = document.getElementById('chatInput');
-            const btnEl = document.getElementById('chatSendBtn');
-            const historyEl = document.getElementById('chatHistory');
-            const text = inputEl.value.trim();
-            
-            if (!text) return;
-            
-            inputEl.value = '';
-            inputEl.disabled = true;
-            btnEl.disabled = true;
-            btnEl.textContent = '...';
-            
-            // Render user bubble
-            const userBubble = document.createElement('div');
-            userBubble.className = 'chat-bubble user';
-            userBubble.textContent = text;
-            historyEl.appendChild(userBubble);
-            historyEl.scrollTop = historyEl.scrollHeight;
-            
-            chatMessages.push({"role": "user", "content": text});
-            
-            try {
-                const res = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ messages: chatMessages })
-                });
-                const data = await res.json();
-                
-                if (data.error) throw new Error(data.error);
-                
-                // Render assistant bubble
-                const astBubble = document.createElement('div');
-                astBubble.className = 'chat-bubble assistant';
-                astBubble.textContent = data.response;
-                historyEl.appendChild(astBubble);
-                
-                chatMessages.push({"role": "assistant", "content": data.response});
-                
-            } catch (err) {
-                const errBubble = document.createElement('div');
-                errBubble.className = 'chat-bubble assistant';
-                errBubble.style.color = '#ef4444';
-                errBubble.textContent = "Error: " + err.message;
-                historyEl.appendChild(errBubble);
-            }
-            
-            historyEl.scrollTop = historyEl.scrollHeight;
-            inputEl.disabled = false;
-            btnEl.disabled = false;
-            btnEl.textContent = 'Send';
-            inputEl.focus();
-        }
 
         // --- Original API Logic (Studio) ---
         const generateBtn = document.getElementById('generateBtn');
         const nicheInput = document.getElementById('nicheInput');
         const styleInput = document.getElementById('styleInput');
         const topicInput = document.getElementById('topicInput');
-        const scriptOverrideInput = document.getElementById('scriptOverrideInput');
         const episodesInput = document.getElementById('episodesInput');
         const llmProviderInput = document.getElementById('llmProviderInput');
         const voiceInput = document.getElementById('voiceInput');
@@ -873,15 +647,14 @@ Tell me a niche, a crazy premise, or a rough idea, and I'll draft a highly engag
 
         generateBtn.addEventListener('click', async () => {
             const topic = topicInput.value.trim();
-            const scriptOverride = scriptOverrideInput.value.trim();
             let niche = nicheInput.value === 'Custom' ? (customNicheInput.value.trim() || 'General') : nicheInput.value;
             let style = styleInput.value === 'Custom' ? (customStyleInput.value.trim() || 'General') : styleInput.value;
             const voiceId = voiceInput.value;
             const llmProvider = llmProviderInput.value;
             const episodes = parseInt(episodesInput.value) || 3;
             
-            if (!topic && !scriptOverride) {
-                alert("Please enter a premise or provide a script override.");
+            if (!topic) {
+                alert("Please enter a premise.");
                 return;
             }
 
@@ -889,23 +662,13 @@ Tell me a niche, a crazy premise, or a rough idea, and I'll draft a highly engag
             generateBtn.textContent = "Generating...";
             resetUI();
             
-            const username = localStorage.getItem('storytime_username') || 'guest';
-            const clientId = username + '_' + Math.random().toString(36).substring(2, 10);
+            const clientId = 'client_' + Math.random().toString(36).substring(2, 15);
 
             try {
                 const res = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        topic, 
-                        niche, 
-                        style, 
-                        episodes, 
-                        voice_id: voiceId, 
-                        llm_provider: llmProvider, 
-                        client_id: clientId,
-                        script_override: scriptOverride
-                    })
+                    body: JSON.stringify({ topic, niche, style, episodes, voice_id: voiceId, llm_provider: llmProvider, client_id: clientId })
                 });
 
                 if (!res.ok) throw new Error('Failed to start generation');
@@ -968,3 +731,7 @@ Tell me a niche, a crazy premise, or a rough idea, and I'll draft a highly engag
     </script>
 </body>
 </html>
+"""
+
+with open('/Users/sagnikdutta/Desktop/YT_EXP_2/index.html', 'w') as f:
+    f.write(HTML_CONTENT)

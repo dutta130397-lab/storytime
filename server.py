@@ -12,6 +12,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
+import sqlite3
+import hashlib
+
 from google import genai
 from google.genai import types
 from groq import Groq
@@ -21,6 +24,18 @@ import numpy as np
 
 # Load env variables
 load_dotenv()
+
+def init_db():
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password_hash TEXT)''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
 
 app = FastAPI()
 
@@ -54,10 +69,54 @@ class GenerateRequest(BaseModel):
     voice_id: str
     llm_provider: str
     client_id: str
+    script_override: str = ""
+
+class ChatRequest(BaseModel):
+    messages: List[dict]
+
+class AuthRequest(BaseModel):
+    username: str
+    password: str
 
 @app.get("/")
 async def serve_index():
     return FileResponse("index.html")
+
+@app.get("/api/library")
+async def get_library(username: str = ""):
+    videos = []
+    if os.path.exists(OUTPUT_DIR):
+        for f in os.listdir(OUTPUT_DIR):
+            if f.endswith("_final.mp4"):
+                # If a username is provided, only return videos that start with {username}_
+                if username and not f.startswith(f"{username}_"):
+                    continue
+                    
+                client_id_ep = f.replace("_final.mp4", "")
+                metadata_path = os.path.join(OUTPUT_DIR, f"{client_id_ep}_metadata.json")
+                
+                title = f"Video {client_id_ep}"
+                description = "No description available"
+                hashtags = ""
+                
+                if os.path.exists(metadata_path):
+                    with open(metadata_path, "r") as mf:
+                        try:
+                            meta = json.load(mf)
+                            title = meta.get("title", title)
+                            description = meta.get("description", description)
+                            hashtags = meta.get("hashtags", hashtags)
+                        except Exception:
+                            pass
+                
+                videos.append({
+                    "url": f"/output/{f}",
+                    "title": title,
+                    "description": description,
+                    "hashtags": hashtags,
+                    "id": client_id_ep
+                })
+    return {"videos": videos}
 
 @app.get("/api/progress/{client_id}")
 async def progress_stream(client_id: str):
@@ -92,7 +151,7 @@ def format_timestamp(seconds: float) -> str:
     millis = int((seconds - int(seconds)) * 1000)
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
-def run_generation_pipeline(loop: asyncio.AbstractEventLoop, topic: str, niche: str, style: str, episodes: int, voice_id: str, llm_provider: str, client_id: str):
+def run_generation_pipeline(loop: asyncio.AbstractEventLoop, topic: str, niche: str, style: str, episodes: int, voice_id: str, llm_provider: str, client_id: str, script_override: str = ""):
     try:
         gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
         groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -109,7 +168,11 @@ def run_generation_pipeline(loop: asyncio.AbstractEventLoop, topic: str, niche: 
         )
         
         total_scenes = episodes * 6
-        planner_prompt = f"Act as a viral short-form series showrunner. You are creating a highly engaging {episodes}-part TikTok/Reels series. Niche: '{niche}'. Style: '{style}'. Premise: '{topic}'.\n\n{viral_framework}\n\nFIRST, write a 'full_script_draft' which is the complete narrative from episode 1 to {episodes}. CRITICAL RULE: You must write out the full, word-for-word narration. The draft MUST contain an absolute minimum of {total_scenes} distinct sentences. Do not write a summary. \nSECOND, chop that draft into exactly {episodes} episodes. Each episode must have an 'episode_title', a highly clickable 'description', a string of 5-7 SEO 'hashtags', and an array of exactly 6 'scenes'. Each scene must extract the 'spoken_text' from your draft sequentially, and include a highly descriptive 'visual_prompt'.\nFINALLY, provide 'visual_continuity_keywords' to keep the art consistent."
+        
+        if script_override.strip():
+            planner_prompt = f"Act as a viral short-form series showrunner. You are creating a highly engaging {episodes}-part TikTok/Reels series. Niche: '{niche}'. Style: '{style}'.\n\nHere is a drafted script from the user:\n\"\"\"{script_override}\"\"\"\n\nCRITICAL RULE: DO NOT write a new story. You must break this EXACT script down into exactly {episodes} episodes. Each episode must have an 'episode_title', a highly clickable 'description', a string of 5-7 SEO 'hashtags', and an array of exactly 6 'scenes'. Each scene must extract the 'spoken_text' from the user's draft sequentially, and include a highly descriptive 'visual_prompt'.\nFINALLY, provide 'visual_continuity_keywords' to keep the art consistent."
+        else:
+            planner_prompt = f"Act as a viral short-form series showrunner. You are creating a highly engaging {episodes}-part TikTok/Reels series. Niche: '{niche}'. Style: '{style}'. Premise: '{topic}'.\n\n{viral_framework}\n\nFIRST, write a 'full_script_draft' which is the complete narrative from episode 1 to {episodes}. CRITICAL RULE: You must write out the full, word-for-word narration. The draft MUST contain an absolute minimum of {total_scenes} distinct sentences. Do not write a summary. \nSECOND, chop that draft into exactly {episodes} episodes. Each episode must have an 'episode_title', a highly clickable 'description', a string of 5-7 SEO 'hashtags', and an array of exactly 6 'scenes'. Each scene must extract the 'spoken_text' from your draft sequentially, and include a highly descriptive 'visual_prompt'.\nFINALLY, provide 'visual_continuity_keywords' to keep the art consistent."
         
         if llm_provider == "gemini":
             planner_res = gemini_client.models.generate_content(
@@ -158,7 +221,7 @@ def run_generation_pipeline(loop: asyncio.AbstractEventLoop, topic: str, niche: 
                 try:
                     chat_completion = groq_client.chat.completions.create(
                         messages=[{"role": "system", "content": "You are a highly precise JSON-outputting assistant."}, {"role": "user", "content": llama_prompt}],
-                        model="llama-3.3-70b-versatile",
+                        model="openai/gpt-oss-120b",
                         response_format={"type": "json_object"},
                     )
                     parsed_res = json.loads(chat_completion.choices[0].message.content)
@@ -341,6 +404,15 @@ def run_generation_pipeline(loop: asyncio.AbstractEventLoop, topic: str, niche: 
             for i in range(len(script_data)):
                 os.remove(os.path.join(OUTPUT_DIR, f"{client_id}_ep{ep_num}_scene{i+1}.jpg"))
                 
+            # Save metadata for the library
+            metadata = {
+                "title": ep_data.get("episode_title", f"Episode {ep_num}"),
+                "description": ep_data.get("description", ""),
+                "hashtags": ep_data.get("hashtags", "")
+            }
+            with open(os.path.join(OUTPUT_DIR, f"{client_id}_ep{ep_num}_metadata.json"), "w") as f:
+                json.dump(metadata, f)
+                
             final_video_urls.append(f"/output/{client_id}_ep{ep_num}_final.mp4")
 
         # After all episodes complete
@@ -357,8 +429,55 @@ async def generate_video(req: GenerateRequest, background_tasks: BackgroundTasks
         progress_queues[req.client_id] = asyncio.Queue()
         
     loop = asyncio.get_running_loop()
-    background_tasks.add_task(run_generation_pipeline, loop, req.topic, req.niche, req.style, req.episodes, req.voice_id, req.llm_provider, req.client_id)
+    background_tasks.add_task(run_generation_pipeline, loop, req.topic, req.niche, req.style, req.episodes, req.voice_id, req.llm_provider, req.client_id, req.script_override)
     return {"status": "started", "client_id": req.client_id}
+
+@app.post("/api/chat")
+async def chat_assistant(req: ChatRequest):
+    try:
+        groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        
+        system_prompt = {
+            "role": "system", 
+            "content": "You are a highly creative Viral TikTok/Reels Producer. Your job is to brainstorm ideas, write compelling short-form scripts, and format them beautifully. Keep responses snappy and focused on engagement (hooks, pacing, cliffhangers)."
+        }
+        
+        messages = [system_prompt] + req.messages
+        
+        chat_completion = groq_client.chat.completions.create(
+            messages=messages,
+            model="openai/gpt-oss-120b"
+        )
+        
+        return {"response": chat_completion.choices[0].message.content}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e)}
+
+@app.post("/api/register")
+async def register(req: AuthRequest):
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
+    try:
+        c.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (req.username, hash_password(req.password)))
+        conn.commit()
+        return {"success": True, "message": "User registered successfully"}
+    except sqlite3.IntegrityError:
+        return {"success": False, "error": "Username already exists"}
+    finally:
+        conn.close()
+
+@app.post("/api/login")
+async def login(req: AuthRequest):
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
+    c.execute("SELECT password_hash FROM users WHERE username = ?", (req.username,))
+    row = c.fetchone()
+    conn.close()
+    if row and row[0] == hash_password(req.password):
+        return {"success": True, "username": req.username}
+    return {"success": False, "error": "Invalid username or password"}
 
 if __name__ == "__main__":
     import uvicorn
